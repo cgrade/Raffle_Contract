@@ -11,6 +11,10 @@ import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VR
 import {LinkToken} from "../../test/mocks/LinkToken.sol";
 import {CodeConstants} from "../../script/HelperConfig.s.sol";
 
+/**
+ * @title RaffleTest
+ * @dev This contract contains tests for the Raffle contract, ensuring that all functionalities work as expected.
+ */
 contract RaffleTest is Test, CodeConstants {
     /*//////////////////////////////////////////////////////////////
                                  ERRORS
@@ -19,21 +23,25 @@ contract RaffleTest is Test, CodeConstants {
     event RaffleEnter(address indexed player);
     event WinnerPicked(address indexed player);
 
-    Raffle public raffle;
-    HelperConfig public helperConfig;
+    Raffle public raffle; // Instance of the Raffle contract
+    HelperConfig public helperConfig; // Instance of the HelperConfig contract
 
-    uint256 subscriptionId;
-    bytes32 gasLane;
-    uint256 automationUpdateInterval;
-    uint256 raffleEntranceFee;
-    uint32 callbackGasLimit;
-    address vrfCoordinatorV2_5;
-    LinkToken link;
+    uint256 subscriptionId; // Subscription ID for VRF
+    bytes32 gasLane; // Gas lane for VRF
+    uint256 automationUpdateInterval; // Interval for automation updates
+    uint256 raffleEntranceFee; // Fee to enter the raffle
+    uint32 callbackGasLimit; // Gas limit for callback
+    address vrfCoordinatorV2_5; // Address of the VRF Coordinator
+    LinkToken link; // Instance of the LinkToken contract
 
-    address public PLAYER = makeAddr("player");
-    uint256 public constant STARTING_USER_BALANCE = 10 ether;
-    uint256 public constant LINK_BALANCE = 100 ether;
+    address public PLAYER = makeAddr("player"); // Address of the player
+    uint256 public constant STARTING_USER_BALANCE = 10 ether; // Starting balance for the player
+    uint256 public constant LINK_BALANCE = 100 ether; // Starting LINK balance
 
+    /**
+     * @dev Sets up the test environment before each test.
+     * Deploys the Raffle contract and initializes necessary variables.
+     */
     function setUp() external {
         DeployRaffle deployer = new DeployRaffle();
         (raffle, helperConfig) = deployer.run();
@@ -57,6 +65,9 @@ contract RaffleTest is Test, CodeConstants {
         vm.stopPrank();
     }
 
+    /**
+     * @dev Tests that the raffle initializes in an open state.
+     */
     function testRaffleInitializesInOpenState() public view {
         assert(raffle.getRaffleState() == Raffle.RaffleState.OPEN);
     }
@@ -64,6 +75,10 @@ contract RaffleTest is Test, CodeConstants {
     /*//////////////////////////////////////////////////////////////
                               ENTER RAFFLE
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @dev Tests that the raffle reverts if the player does not pay enough to enter.
+     */
     function testRaffleRevertsWHenYouDontPayEnought() public {
         // Arrange
         vm.prank(PLAYER);
@@ -72,6 +87,9 @@ contract RaffleTest is Test, CodeConstants {
         raffle.enterRaffle();
     }
 
+    /**
+     * @dev Tests that the raffle records the player's address when they enter.
+     */
     function testRaffleRecordsPlayerWhenTheyEnter() public {
         // Arrange
         vm.prank(PLAYER);
@@ -82,16 +100,21 @@ contract RaffleTest is Test, CodeConstants {
         assert(playerRecorded == PLAYER);
     }
 
+    /**
+     * @dev Tests that an event is emitted when a player enters the raffle.
+     */
     function testEmitsEventOnEntrance() public {
         // Arrange
         vm.prank(PLAYER);
-
         // Act / Assert
         vm.expectEmit(true, false, false, false, address(raffle));
         emit RaffleEnter(PLAYER);
         raffle.enterRaffle{value: raffleEntranceFee}();
     }
 
+    /**
+     * @dev Tests that players cannot enter the raffle while it is calculating.
+     */
     function testDontAllowPlayersToEnterWhileRaffleIsCalculating() public {
         // Arrange
         vm.prank(PLAYER);
@@ -109,6 +132,10 @@ contract RaffleTest is Test, CodeConstants {
     /*//////////////////////////////////////////////////////////////
                               CHECKUPKEEP
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @dev Tests that checkUpkeep returns false if there is no balance.
+     */
     function testCheckUpkeepReturnsFalseIfItHasNoBalance() public {
         // Arrange
         vm.warp(block.timestamp + automationUpdateInterval + 1);
@@ -121,6 +148,9 @@ contract RaffleTest is Test, CodeConstants {
         assert(!upkeepNeeded);
     }
 
+    /**
+     * @dev Tests that checkUpkeep returns false if the raffle is not open.
+     */
     function testCheckUpkeepReturnsFalseIfRaffleIsntOpen() public {
         // Arrange
         vm.prank(PLAYER);
@@ -137,6 +167,9 @@ contract RaffleTest is Test, CodeConstants {
     }
 
     // Challenge 1. testCheckUpkeepReturnsFalseIfEnoughTimeHasntPassed
+    /**
+     * @dev Tests that checkUpkeep returns false if enough time has not passed.
+     */
     function testCheckUpkeepReturnsFalseIfEnoughTimeHasntPassed() public {
         // Arrange
         vm.prank(PLAYER);
@@ -150,6 +183,9 @@ contract RaffleTest is Test, CodeConstants {
     }
 
     // Challenge 2. testCheckUpkeepReturnsTrueWhenParametersGood
+    /**
+     * @dev Tests that checkUpkeep returns true when the parameters are good.
+     */
     function testCheckUpkeepReturnsTrueWhenParametersGood() public {
         // Arrange
         vm.prank(PLAYER);
@@ -167,6 +203,10 @@ contract RaffleTest is Test, CodeConstants {
     /*//////////////////////////////////////////////////////////////
                              PERFORMUPKEEP
     //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @dev Tests that performUpkeep can only run if checkUpkeep is true.
+     */
     function testPerformUpkeepCanOnlyRunIfCheckUpkeepIsTrue() public {
         // Arrange
         vm.prank(PLAYER);
@@ -175,10 +215,13 @@ contract RaffleTest is Test, CodeConstants {
         vm.roll(block.number + 1);
 
         // Act / Assert
-        // It doesnt revert
+        // It doesn't revert
         raffle.performUpkeep("");
     }
 
+    /**
+     * @dev Tests that performUpkeep reverts if checkUpkeep is false.
+     */
     function testPerformUpkeepRevertsIfCheckUpkeepIsFalse() public {
         // Arrange
         uint256 currentBalance = 0;
@@ -191,6 +234,9 @@ contract RaffleTest is Test, CodeConstants {
         raffle.performUpkeep("");
     }
 
+    /**
+     * @dev Tests that performUpkeep updates the raffle state and emits a request ID.
+     */
     function testPerformUpkeepUpdatesRaffleStateAndEmitsRequestId() public {
         // Arrange
         vm.prank(PLAYER);
@@ -214,6 +260,7 @@ contract RaffleTest is Test, CodeConstants {
     /*//////////////////////////////////////////////////////////////
                            FULFILLRANDOMWORDS
     //////////////////////////////////////////////////////////////*/
+
     modifier raffleEntered() {
         vm.prank(PLAYER);
         raffle.enterRaffle{value: raffleEntranceFee}();
@@ -229,6 +276,9 @@ contract RaffleTest is Test, CodeConstants {
         _;
     }
 
+    /**
+     * @dev Tests that fulfillRandomWords can only be called after performUpkeep.
+     */
     function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep() public raffleEntered skipFork {
         // Arrange
         // Act / Assert
@@ -240,6 +290,9 @@ contract RaffleTest is Test, CodeConstants {
         VRFCoordinatorV2_5Mock(vrfCoordinatorV2_5).fulfillRandomWords(1, address(raffle));
     }
 
+    /**
+     * @dev Tests that fulfillRandomWords picks a winner, resets the raffle, and sends money.
+     */
     function testFulfillRandomWordsPicksAWinnerResetsAndSendsMoney() public raffleEntered skipFork {
         address expectedWinner = address(1);
 
