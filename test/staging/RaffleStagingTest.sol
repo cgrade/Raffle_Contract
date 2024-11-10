@@ -11,25 +11,35 @@ import {StdCheats} from "forge-std/StdCheats.sol";
 import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
 import {CreateSubscription} from "../../script/Interactions.s.sol";
 
+/**
+ * @title RaffleTest
+ * @dev This contract contains tests for the Raffle contract, ensuring that
+ *      the raffle functionality works as intended, including entering the raffle,
+ *      fulfilling random words, and picking a winner.
+ */
 contract RaffleTest is StdCheats, Test {
     /* Errors */
     event RequestedRaffleWinner(uint256 indexed requestId);
     event RaffleEnter(address indexed player);
     event WinnerPicked(address indexed player);
 
-    Raffle public raffle;
-    HelperConfig public helperConfig;
+    Raffle public raffle; // Instance of the Raffle contract
+    HelperConfig public helperConfig; // Instance of the HelperConfig contract
 
-    uint256 subscriptionId;
-    bytes32 gasLane;
-    uint256 automationUpdateInterval;
-    uint256 raffleEntranceFee;
-    uint32 callbackGasLimit;
-    address vrfCoordinatorV2_5;
+    uint256 subscriptionId; // Subscription ID for VRF
+    bytes32 gasLane; // Gas lane for VRF
+    uint256 automationUpdateInterval; // Interval for automation updates
+    uint256 raffleEntranceFee; // Fee to enter the raffle
+    uint32 callbackGasLimit; // Gas limit for callback
+    address vrfCoordinatorV2_5; // Address of the VRF Coordinator
 
-    address public PLAYER = makeAddr("player");
-    uint256 public constant STARTING_USER_BALANCE = 10 ether;
+    address public PLAYER = makeAddr("player"); // Address of the player
+    uint256 public constant STARTING_USER_BALANCE = 10 ether; // Starting balance for the player
 
+    /**
+     * @dev Sets up the test environment by deploying the Raffle contract and
+     *      configuring the necessary parameters.
+     */
     function setUp() external {
         DeployRaffle deployer = new DeployRaffle();
         (raffle, helperConfig) = deployer.run();
@@ -49,6 +59,7 @@ contract RaffleTest is StdCheats, Test {
     ////////////////////////
 
     modifier raffleEntered() {
+        // Simulates a player entering the raffle
         vm.prank(PLAYER);
         raffle.enterRaffle{value: raffleEntranceFee}();
         vm.warp(block.timestamp + automationUpdateInterval + 1);
@@ -57,6 +68,7 @@ contract RaffleTest is StdCheats, Test {
     }
 
     modifier onlyOnDeployedContracts() {
+        // Ensures that the tests are only run on deployed contracts
         if (block.chainid == 31337) {
             return;
         }
@@ -67,6 +79,10 @@ contract RaffleTest is StdCheats, Test {
         }
     }
 
+    /**
+     * @dev Tests that fulfillRandomWords can only be called after performUpkeep.
+     *      It checks for reverts when trying to fulfill nonexistent requests.
+     */
     function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep() public raffleEntered onlyOnDeployedContracts {
         // Arrange
         // Act / Assert
@@ -75,10 +91,13 @@ contract RaffleTest is StdCheats, Test {
         VRFCoordinatorV2_5Mock(vrfCoordinatorV2_5).fulfillRandomWords(0, address(raffle));
 
         vm.expectRevert("nonexistent request");
-
         VRFCoordinatorV2_5Mock(vrfCoordinatorV2_5).fulfillRandomWords(1, address(raffle));
     }
 
+    /**
+     * @dev Tests that fulfillRandomWords picks a winner, resets the raffle,
+     *      and sends the prize money to the winner.
+     */
     function testFulfillRandomWordsPicksAWinnerResetsAndSendsMoney() public raffleEntered onlyOnDeployedContracts {
         address expectedWinner = address(1);
 
